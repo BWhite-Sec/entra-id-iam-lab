@@ -65,11 +65,17 @@ logic could be validated before enforcement:
 | Baseline - Require MFA for All Users | All users (break-glass admin excluded) | Require MFA | Report-only |
 | Risk-Based - Require MFA on Medium+ Sign-In Risk | All users (break-glass admin excluded) | Require MFA on Medium/High sign-in risk | Report-only |
 
+![Conditional Access policies list, both in report-only mode](../screenshots/conditional-access-policies-list.jpg)
+*Figure 1 — Both Conditional Access policies as configured in the Entra admin center, report-only mode confirmed.*
+
 Privileged Identity Management (PIM) was configured with `asmith` as an
 **eligible** (not standing/active) assignment for the Security Reader role,
 with a bounded one-year eligibility window rather than permanent
 eligibility, and was activated once with a documented justification to
 validate the just-in-time access flow end to end.
+
+![PIM eligible assignment configuration for asmith, bounded one-year window](../screenshots/pim-eligible-assignment-setting.jpg)
+*Figure 2 — PIM assignment settings: Eligible (not Active), with a defined start and end date rather than permanent eligibility.*
 
 ---
 
@@ -91,6 +97,9 @@ after that — both intervals implausible for legitimate travel between the
 two locations, consistent with the intended VPN-simulated impossible-travel
 pattern.
 
+![Entra sign-in logs showing the Katy → Querétaro → Houston sequence](../screenshots/impossible-travel-signin-logs.jpg)
+*Figure 3 — Raw sign-in log entries for `jdoe`, showing the three sign-ins with their timestamps, IPs, and locations.*
+
 ### 3.2 Native Detection: Identity Protection
 
 Microsoft Entra ID Protection's **Risk detections** report flagged three
@@ -101,6 +110,9 @@ events on the `jdoe` account, all tied to IP `149.40.56.18`:
 | 11:12:49 AM | Anonymous IP address | Remediated | Low |
 | 11:12:45 AM | Anonymous IP address | Remediated | Low |
 | 11:12:28 AM | Anonymous IP address | At risk → Dismissed | Low |
+
+![Identity Protection risk detections showing three Anonymous IP address events](../screenshots/risk-detections-anonymous-ip.jpg)
+*Figure 4 — Identity Protection's risk detections report, filters cleared, showing all three Anonymous IP address detections.*
 
 Notably, Identity Protection's **Atypical travel** detection — the
 heuristic most directly associated with impossible-travel scenarios — did
@@ -146,6 +158,9 @@ index=entra sourcetype=entra_signin_log
 | jdoe@... | Katy | Querétaro | 76.1 |
 | jdoe@... | Querétaro | Houston | 2.8 |
 
+![Splunk results for the manually-built impossible-travel detection](../screenshots/splunk-impossible-travel-results.jpg)
+*Figure 5 — Splunk search results confirming the 76.1-minute and 2.8-minute city-to-city travel deltas.*
+
 This query independently confirmed the same travel pattern Identity
 Protection's Anonymous IP detection surfaced, without depending on
 Microsoft's risk-scoring model at all. Building this detection manually —
@@ -162,6 +177,9 @@ index=entra sourcetype=entra_signin_log riskLevelDuringSignIn!="none"
 | sort -createdDateTime
 ```
 
+![Splunk results for the risk-flagged sign-ins query](../screenshots/splunk-risky-signins-results.jpg)
+*Figure 6 — Splunk search results showing all three risk-flagged sign-in events with their risk level and remediation state.*
+
 Confirms all three risk-flagged sign-in events, their risk level, and
 their remediation state — useful as a standing triage query for any future
 sign-in activity landing in this index.
@@ -176,6 +194,9 @@ analyst decision:
 > Verified benign — sign-in originated from a known commercial VPN service
 > (Surfshark) used deliberately for lab testing purposes, not indicative of
 > account compromise.
+
+![Risky user timeline showing the detection followed by the admin dismissal](../screenshots/risky-user-timeline-dismissed.jpg)
+*Figure 7 — Risky user details timeline for `jdoe`, showing the 11:20 AM risk event and the 11:29 AM dismissal by Admin.*
 
 The dismissal is reflected in the account's risk timeline (Actor: Admin,
 11:29 AM), immediately following the 11:20 AM detection. This distinction
@@ -198,6 +219,9 @@ Graph permission:
 | API | Permission | Type | Admin Consent | Granted By |
 |---|---|---|---|---|
 | Microsoft Graph | `User.Read.All` | Application | Yes | An administrator |
+
+![Enterprise Applications permissions view for svc-automation](../screenshots/svc-automation-graph-permissions.jpg)
+*Figure 8 — Enterprise Applications → Permissions view for `svc-automation`, showing `User.Read.All` granted at the Application level via admin consent.*
 
 This permission allows the application to read **every user's full
 profile in the tenant**, non-interactively, without any signed-in user
@@ -364,3 +388,6 @@ Sign-in logs were pulled from Microsoft Graph (`auditLogs/signIns`) using
 an app-only (client credentials) OAuth flow and forwarded to Splunk via
 HTTP Event Collector. Full source: [`pull_and_forward.py`](pull_and_forward.py)
 in this repository.
+
+![Splunk showing 20 sign-in events successfully ingested from the pipeline](../screenshots/splunk-entra-signin-events.jpg)
+*Figure 9 — Splunk search confirming successful ingestion of sign-in events via the Graph API → HEC pipeline, with full event field breakdown.*
