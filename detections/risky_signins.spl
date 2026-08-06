@@ -1,0 +1,12 @@
+// Detection: Risk-Flagged Sign-Ins
+// MITRE ATT&CK: T1078.004 - Valid Accounts: Cloud Accounts
+// Description: Surfaces any sign-in event carrying a non-"none" risk
+//              level as scored by Microsoft Entra ID Protection. Useful
+//              as a standing triage query for any risk-flagged activity
+//              landing in this index.
+// Data source: Microsoft Graph auditLogs/signIns, forwarded via HEC
+//              (index=entra, sourcetype=entra_signin_log)
+
+index=entra sourcetype=entra_signin_log riskLevelDuringSignIn!="none"
+| table createdDateTime, userPrincipalName, ipAddress, location.city, riskLevelDuringSignIn, riskState
+| sort -createdDateTime
