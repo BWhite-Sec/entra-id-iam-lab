@@ -1,0 +1,24 @@
+// Detection: Manually-Built Impossible Travel Correlation
+// MITRE ATT&CK: T1078.004 - Valid Accounts: Cloud Accounts
+// Description: Independently validates implausible-travel sign-in
+//              patterns by calculating the time and location delta
+//              between each user's consecutive sign-ins directly from
+//              raw sign-in log data, rather than relying solely on
+//              Identity Protection's built-in Atypical Travel model
+//              (which requires sign-in history to establish a baseline
+//              and may not fire for new/low-history accounts).
+// Data source: Microsoft Graph auditLogs/signIns, forwarded via HEC
+//              (index=entra, sourcetype=entra_signin_log)
+//
+// Threshold: flags any city-to-city change occurring in under 120
+//            minutes. Adjust based on observed environment/travel
+//            patterns.
+
+index=entra sourcetype=entra_signin_log
+| eval city=coalesce('location.city',"unknown")
+| sort 0 userPrincipalName, createdDateTime
+| streamstats current=f last(city) as prev_city, last(createdDateTime) as prev_time by userPrincipalName
+| where isnotnull(prev_city) AND city!=prev_city
+| eval minutes_between=round((strptime(createdDateTime,"%Y-%m-%dT%H:%M:%S%Z") - strptime(prev_time,"%Y-%m-%dT%H:%M:%S%Z"))/60, 1)
+| where minutes_between < 120
+| table userPrincipalName, prev_city, city, minutes_between, createdDateTime
